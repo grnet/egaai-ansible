@@ -1,0 +1,40 @@
+---
+
+### wayf plugin configuration
+- name: Configure wayf plugin
+  block:
+  - name: Restarting keycloak
+    systemd:
+      name: keycloak
+      state: restarted
+    become: yes
+
+  #wait for port to open
+  - name: Waiting for service port to be opened...
+    wait_for:
+      host: "{{ansible_facts.default_ipv4.address}}"
+      port: 8080
+      delay: 10
+      timeout: 180
+
+  #wait for service to respond
+  - name: Waiting for service to be up and running...
+    uri:
+      url: "http://{{ansible_facts.default_ipv4.address}}:8080"
+      status_code: "200"
+      timeout: 600
+
+  - name: Select wayf plugin for login UI
+    community.general.keycloak_realm:
+      auth_client_id: admin-cli
+      auth_keycloak_url: https://{{ groups['proxy'][0] }}/auth
+      auth_realm: master
+      auth_username: "{{keycloak_admin_username}}"
+      auth_password: "{{keycloak_admin_password}}"
+      id: "{{item}}"
+      realm: "{{item}}"
+      login_theme: "eosc-kc"
+      state: present
+    with_items: "{{wayf.add_to_realms}}"
+  when: "{{wayf.enabled}} == true"
+  tags: "wayf_plugin"
