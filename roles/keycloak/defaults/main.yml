@@ -22,3 +22,9 @@ wayf:
   add_to_realms:
     - "master"
 
+
+idp_hashedid_mapper:
+  enabled: true
+  name: "keycloak-idp-hashedId-mapper"
+  jar_url: "<location of plugin jar>"
+  modulexml_url: "https://raw.githubusercontent.com/eosc-kc/keycloak-idp-hashedId-mapper/master/module.xml"
