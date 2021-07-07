@@ -3,17 +3,23 @@
 - name: Include OS-specific variables
   include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_distribution }}-{{ ansible_distribution_release }}.yml"
-    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
-    - "{{ ansible_distribution }}.yml"
-    - "{{ ansible_os_family }}.yml"
+    - "os/{{ ansible_distribution }}-{{ ansible_distribution_release }}.yml"
+    - "os/{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "os/{{ ansible_distribution }}.yml"
+    - "os/{{ ansible_os_family }}.yml"
+  tags:
+    - always
+
+- name: Include keycloak-specific variables
+  include_vars: "keycloak/{{ keycloak_version }}.yml"
   tags:
     - always
 
 
 ### Install Java with OS-specific packages
-- include: "java-{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
-
+- include: "java/{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+  tags:
+    - always
 
 - name: Capture logged in user name
   set_fact:

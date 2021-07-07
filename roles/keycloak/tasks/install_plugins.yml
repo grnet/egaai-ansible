@@ -26,8 +26,8 @@
       add_children:
         - "<provider>module:org.keycloak.keycloak-theme-vanilla</provider>"
       namespaces:
-        srv: urn:jboss:domain:16.0
-        sub: urn:jboss:domain:keycloak-server:1.1
+        srv: "{{ namespaces.domain }}"
+        sub: "{{ namespaces.domain_server }}"
 
   - name: Setup keycloak xml theme modules
     xml:
@@ -37,8 +37,8 @@
       add_children:
         - "<modules>  <module>org.keycloak.keycloak-theme-vanilla</module>  </modules>"
       namespaces:
-        srv: urn:jboss:domain:16.0
-        sub: urn:jboss:domain:keycloak-server:1.1
+        srv: "{{ namespaces.domain }}"
+        sub: "{{ namespaces.domain_server }}"
   when: "{{wayf.enabled}} == true"
   tags: "wayf_plugin"
 
@@ -69,8 +69,8 @@
         add_children:
           - "<provider>module:org.keycloak.{{ idp_hashedid_mapper.name }}</provider>"
         namespaces:
-          srv: urn:jboss:domain:16.0
-          sub: urn:jboss:domain:keycloak-server:1.1
+          srv: "{{ namespaces.domain }}"
+          sub: "{{ namespaces.domain_server }}"
 
   when: "{{idp_hashedid_mapper.enabled}} == true"
   tags: "idp_hashedid_mapper_plugin"
