@@ -15,11 +15,11 @@
   tags:
     - always
 
-
 ### Install Java with OS-specific packages
 - include: "java/{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
   tags:
     - always
+
 
 - name: Capture logged in user name
   set_fact:
@@ -27,121 +27,109 @@
 
 
 #### Extract keycloak from archive
-
-- name: Create keycloak directory
-  file:
-    path: "/tmp/keycloak-tmp"
-    state: directory
-  tags: "download_extract"
-
-- name: Download keycloak archive file
-  get_url:
-    url: "{{keycloak_archive_url}}"
-    dest: "/tmp/keycloak_archive"
-  tags: "download_extract"
-
-- name: unpack keycloak
-  unarchive:
-    src: "/tmp/keycloak_archive"
-    dest: "/tmp/keycloak-tmp"
-    copy: no
-  tags: "download_extract"
-
-- name: Find keycloak extracted folder name
-  find:
-    paths: /tmp/keycloak-tmp
-    patterns: 'keycloak*'
-    file_type: directory
-    recurse: no
-  register: find_result
-  tags: "download_extract"
-
-- name: Move extracted keycloak to final keycloak folder
-  command: "mv {{find_result.files[0].path}} {{keycloak_home}}"
+- name: "Task block: Download and extract keycloak"
+  block:
+  - name: Create keycloak directory
+    file:
+      path: "/tmp/keycloak-tmp"
+      state: directory
+  - name: Download keycloak archive file
+    get_url:
+      url: "{{keycloak_archive_url}}"
+      dest: "/tmp/keycloak_archive"
+  - name: unpack keycloak
+    unarchive:
+      src: "/tmp/keycloak_archive"
+      dest: "/tmp/keycloak-tmp"
+      copy: no
+  - name: Find keycloak extracted folder name
+    find:
+      paths: /tmp/keycloak-tmp
+      patterns: 'keycloak*'
+      file_type: directory
+      recurse: no
+    register: find_result
+  - name: Move extracted keycloak to final keycloak folder
+    command: "mv {{find_result.files[0].path}} {{keycloak_home}}"
   tags: "download_extract"
 
 ######## Create postgresql plugin
-
-- name: create postresql plugin dir with parent directories
-  file:
-    path: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main"
-    state: directory
-  tags: "postgresql_plugin"
-
-- name: Download postgresql JDBC driver
-  get_url:
-    url: "https://jdbc.postgresql.org/download/{{postgresql_jar_name}}"
-    dest: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main"
-  tags: "postgresql_plugin"
-    
-- name: Installing postgresql plugin 
-  template:
-    src: templates/module.xml.j2
-    dest: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main/module.xml"
+- name: "Task block: Create postgresql plugin"
+  block:
+  - name: create postresql plugin dir with parent directories
+    file:
+      path: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main"
+      state: directory
+  - name: Download postgresql JDBC driver
+    get_url:
+      url: "https://jdbc.postgresql.org/download/{{postgresql_jar_name}}"
+      dest: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main"
+  - name: Installing postgresql plugin
+    template:
+      src: templates/module.xml.j2
+      dest: "{{keycloak_home}}/modules/system/layers/keycloak/org/postgresql/main/module.xml"
   tags: "postgresql_plugin"
 
 ######## Install template standalone-ha.xml  
 
-- name: install keycloak configuration
+- name: Installing keycloak configuration (standalone-ha.xml)
   template:
     mode: 0644
     src: templates/{{keycloak_version}}/standalone-ha.xml.j2
     dest: "{{keycloak_home}}/standalone/configuration/standalone-ha.xml"
-  tags: "copy_config"
+  tags: "install_standaloneha"
 
 ############### Setup admin user
-
-- name: Remove file (delete file)
-  ansible.builtin.file:
-    path: "{{keycloak_home}}/standalone/configuration/keycloak-add-user.json"
-    state: absent
+- name: "Task block: Setup admin user"
+  block:
+  - name: Remove file (delete file if exists)
+    ansible.builtin.file:
+      path: "{{keycloak_home}}/standalone/configuration/keycloak-add-user.json"
+      state: absent
+  - name: Create admin user
+    shell: "{{keycloak_home}}/bin/add-user-keycloak.sh -u {{ keycloak_admin_username }} -p {{ keycloak_admin_password }}"
+    args:
+      executable: /bin/bash
   tags: "setup_admin"
 
-- name: create admin user
-  shell: "{{keycloak_home}}/bin/add-user-keycloak.sh -u {{ keycloak_admin_username }} -p {{ keycloak_admin_password }}"
-  args:
-    executable: /bin/bash
-  tags: "setup_admin"
-
-############### Setup keycloak as a service
-
-- name: keycloak systemd setup
-  template:
-    owner: root
-    group: root
-    mode: 0644
-    src: templates/keycloak.service.j2
-    dest: /etc/systemd/system/keycloak.service
-  become: yes
-  tags: "setup_sys_service"
-
-- name: enable keycloak
-  systemd:
-    name: keycloak
-    enabled: yes
-  become: yes
-  tags: "setup_sys_service"
-
-- name: start/restart keycloak
-  systemd:
-    name: keycloak
-    state: restarted
-  become: yes
-  tags: "setup_sys_service"
 
 ### install other plugins
 
+# would loop over block of tasks within install_plugins.yml, but looping on blocks is not allowed in ansible
 - name: Install other plugins
-  import_tasks: "install_plugins.yml"
-  tags: "plugins"
-  notify:
-    - Restart keycloak
+  include_tasks: "install_plugin.yml"
+  when: not keycloak_plugins is undefined
+  loop: "{{ lookup('dict', keycloak_plugins) }}"
+  tags: "install_plugins"
+
+
+############### Setup keycloak as a service
+
+- name: "Task block: Setup keycloak as a service"
+  block:
+  - name: keycloak systemd setup
+    template:
+      owner: root
+      group: root
+      mode: 0644
+      src: templates/keycloak.service.j2
+      dest: /etc/systemd/system/keycloak.service
+    become: yes
+  - name: enable keycloak
+    systemd:
+      name: keycloak
+      enabled: yes
+    become: yes
+  - name: restart keycloak
+    systemd:
+      name: keycloak
+      state: restarted
+    become: yes
+  tags: "setup_sys_service"
 
 
 ##### configure keycloak
 
 - name: Configure various keycloak aspects
-  import_tasks: "configure_keycloak.yml"
+  import_tasks: "configure.yml"
   tags: "configure"
-  notify:
-    - Restart keycloak

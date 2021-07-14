@@ -366,11 +366,11 @@
                     </security>
                 </datasource>
                 <datasource jndi-name="java:jboss/datasources/KeycloakDS" pool-name="KeycloakDS" enabled="true" use-java-context="true" statistics-enabled="${wildfly.datasources.statistics-enabled:${wildfly.statistics-enabled:false}}">
-                    <connection-url>jdbc:postgresql://{{groups['db'][0]}}/{{db_name}}</connection-url>
+                    <connection-url>jdbc:postgresql://{{groups['db'][0]}}/{{keycloakdb.name}}</connection-url>
                     <driver>postgresql</driver>
                     <security>
-                        <user-name>{{db_user}}</user-name>
-                        <password>{{db_password}}</password>
+                        <user-name>{{keycloakdb.user}}</user-name>
+                        <password>{{keycloakdb.pass}}</password>
                     </security>
                 </datasource>
                 <drivers>
